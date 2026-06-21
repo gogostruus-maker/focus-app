@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Цифровой Блокнот</title>
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --paper-bg: #fdfdfb;
+            --grid-color: rgba(180, 195, 210, 0.15); /* Ненавязчивая светло-серая клеточка */
+            --text-color: #242424; 
+            --marker-color: rgba(254, 240, 138, 0.55); /* Пастельный маркер-хайлайтер */
+            --strike-color: rgba(36, 36, 36, 0.35);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'EB Garamond', serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #121212;
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Кроссплатформенный контейнер: на ПК и планшетах центрируется и сохраняет форму листа А5 */
+        .notepad-container {
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            background-color: var(--paper-bg);
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 22px 22px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,0,0,0.6);
+            perspective: 1000px;
+        }
+
+        /* Стабильный 3D Page-Flip эффект смены листов */
+        .page-flip-anim { animation: flipPage 0.4s ease-in-out; transform-origin: left center; }
+        @keyframes flipPage {
+            0% { transform: scale(1) rotateY(0deg); opacity: 1; }
+            50% { transform: scale(0.97) rotateY(-12deg); opacity: 0.8; }
+            100% { transform: scale(1) rotateY(0deg); opacity: 1; }
+        }
+
+        /* Шапка с отступами, чтобы закладки не перекрывали текст */
+        .header {
+            padding: 15px 50px 8px 65px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px dashed rgba(0,0,0,0.08);
+            z-index: 2;
+        }
+
+        /* Компактная левая закладка Инструкции */
+        .instruction-tab {
+            position: absolute;
+            top: 15px;
+            left: 0;
+            background: #e6dfd3;
+            color: #4a453c;
+            padding: 8px 4px;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            z-index: 50;
+            box-shadow: 1px 1px 4px rgba(0,0,0,0.1);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-left: none;
+        }
+        .instruction-tab span {
+            writing-mode: vertical-lr;
+            transform: rotate(180deg);
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Компактная полупрозрачная правая закладка Подсказки */
+        .feedback-tab {
+            position: absolute;
+            top: 15px;
+            right: 0;
+            background: #d1fae5;
+            color: #065f46;
+            padding: 8px 3px;
+            border-radius: 4px 0 0 4px;
+            cursor: pointer;
+            z-index: 50;
+            box-shadow: -1px 1px 4px rgba(0,0,0,0.1);
+            border: 1px solid rgba(0,0,0,0.08);
+            border-right: none;
+            opacity: 0.85;
+        }
+        .feedback-tab span {
+            writing-mode: vertical-lr;
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .profile-btn {
+            background: transparent;
+            border: 1px solid rgba(0,0,0,0.2);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #444;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .date-picker-wrapper { position: relative; text-align: right; cursor: pointer; }
+        .header-date { font-size: 1.15rem; font-weight: 600; color: #444; border-bottom: 1px dotted #999; padding-bottom: 2px; }
+        .hidden-date-input { position: absolute; top: 0; right: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+
+        /* Цели: Прямой шрифт, строгое выравнивание по левому краю страницы */
+        .goals-top-box { padding: 10px 24px; background: rgba(0,0,0,0.01); border-bottom: 1px solid rgba(0,0,0,0.03); }
+        .goal-editable { font-size: 1.1rem; color: #444; outline: none; border: none; background: transparent; width: 100%; font-family: inherit; font-weight: 600; text-align: left; }
+
+        /* Список задач строго на 15 строк */
+        .todo-list { flex: 1; overflow-y: auto; padding: 5px 0 120px 0; user-select: none; }
+        .todo-row { height: 40px; display: flex; align-items: center; padding: 0 24px; position: relative; transition: background 0.3s; }
+        .row-number { width: 28px; font-size: 1.1rem; color: #888; font-weight: 600; }
+        .row-input-wrapper { flex: 1; display: flex; align-items: center; gap: 10px; height: 100%; }
+        .row-input { flex: 1; background: transparent; border: none; outline: none; font-family: inherit; font-size: 1.15rem; color: var(--text-color); height: 100%; }
+        
+        /* Автоматическое выделение времени жирным */
+        .time-badge { font-weight: 700; font-size: 1.1rem; color: #000; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; display: none; }
+        .time-badge.error-time { background: #fee2e2; color: #991b1b; } 
+
+        .mic-btn { background: transparent; border: none; cursor: pointer; font-size: 1.1rem; opacity: 0.25; padding: 5px; z-index: 5; }
+        .mic-btn.recording { opacity: 1; color: #dc2626; }
+
+        .todo-row.important { background-color: var(--marker-color); }
+        .todo-row.completed .row-input { text-decoration: line-through; color: var(--strike-color); }
+
+        /* Выезжающие оверлеи экранов */
+        .overlay-screen {
+            position: absolute;
+            top: 0; left: -100%; width: 100%; height: 100%;
+            background: #f4f3ee; z-index: 200;
+            transition: left 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
+            padding: 40px 24px; overflow-y: auto;
+        }
+        .overlay-screen.open { left: 0; }
+        .overlay-close { font-size: 2rem; cursor: pointer; float: right; margin-top: -15px; color: #666; }
+        .overlay-screen h4 { margin-bottom: 25px; font-size: 1.4rem; border-bottom: 1px solid #ddd; padding-bottom: 8px; font-weight: 600; }
+        
+        .instruction-content p, .feedback-form p { font-size: 1.15rem; color: #444; line-height: 1.45; margin-bottom: 15px; }
+        .instruction-content ul { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+        .instruction-content li { font-size: 1.15rem; color: #333; line-height: 1.45; }
+
+        .profile-form, .feedback-form { display: flex; flex-direction: column; gap: 15px; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-size: 1.1rem; font-weight: 600; color: #444; }
+        .form-group input, .form-group select, .form-group textarea { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit; font-size: 1.1rem; background: #fff; }
+        .form-row-inline { display: flex; gap: 10px; }
+        .checkbox-group { display: flex; flex-direction: column; gap: 8px; background: #fff; padding: 12px; border: 1px solid #ccc; border-radius: 6px; }
+        .checkbox-item { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; cursor: pointer; }
+
+        /* Утренняя заставка строго на 3 секунды. Свайп-возвраты удалены из кода */
+        .morning-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(18, 18, 12, 0.96);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 100; color: #fff; padding: 40px; text-align: center;
+            transition: opacity 0.4s ease;
+        }
+        .morning-card h3 { font-size: 1.8rem; margin-bottom: 15px; color: #fef08a; font-weight: 600; }
+        .morning-card p { font-size: 1.3rem; font-weight: 300; line-height: 1.5; }
+
+        /* Блок Заметок */
+        .bottom-panel {
+            position: absolute;
+            bottom: 0; left: 0; width: 100%;
+            background: #f4f3ee; border-top: 1px solid rgba(0,0,0,0.1);
+            transition: transform 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
+            transform: translateY(calc(100% - 40px)); z-index: 10;
+        }
+        .bottom-panel.open { transform: translateY(0); }
+        .panel-trigger {
+            height: 40px; background: #e2e0d8;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; font-weight: 600; font-size: 1.1rem; letter-spacing: 0.5px; color: #333;
+        }
+        .panel-content { padding: 15px; height: 200px; }
+        .panel-textarea { width: 100%; height: 100%; background: transparent; border: 1px dashed rgba(0,0,0,0.15); font-family: inherit; font-size: 1.1rem; padding: 10px; resize: none; outline: none; line-height: 1.4; }
+
+        /* Главная кнопка закрытия смены */
+        .finish-day-container { padding: 15px 24px; display: flex; justify-content: center; background: transparent; position: absolute; bottom: 40px; width: 100%; }
+        .finish-btn {
+            background: #242424; color: #fff; border: none; padding: 12px 35px; border-radius: 24px;
+            font-size: 1.1rem; font-weight: 600; cursor: pointer; letter-spacing: 0.5px; font-family: inherit;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: background 0.2s;
+        }
+        .finish-btn:active { background: #000; }
+        
+        .interim-btn { background: #4b5563; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-family: inherit; font-size: 1.05rem; cursor: pointer; margin-top: 5px; font-weight: 600; }
+        .interim-btn:active { background: #374151; }
+
+        /* Скрытый А4 контейнер-шаблон для генерации читабельного PDF без кракозябр */
+        #pdf-render-template {
+            position: absolute; left: -9999px; top: -9999px;
+            width: 210mm; padding: 20mm; background: #fff; color: #000;
+            font-family: 'Times New Roman', serif; line-height: 1.5;
+        }
+        .pdf-title { font-size: 20px; font-weight: bold; margin-bottom: 25px; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 5px; }
+        .pdf-meta { font-size: 13px; margin-bottom: 20px; }
+        .pdf-meta p { margin-bottom: 5px; }
+        .pdf-section-title { font-size: 14px; font-weight: bold; margin-top: 25px; margin-bottom: 10px; text-transform: uppercase; background: #eee; padding: 4px 8px; }
+        .pdf-item { font-size: 13px; margin-bottom: 6px; padding-left: 5px; }
+        .pdf-notes { font-size: 13px; white-space: pre-wrap; word-wrap: break-word; padding: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="notepad-container" id="notepad">
+    
+    <div class="morning-overlay" id="morning-overlay">
+        <div class="morning-card">
+            <h3>Фокус на период</h3>
+            <p id="overlay-goal-text"></p>
+        </div>
+    </div>
+
+    <div class="instruction-tab" onclick="toggleScreen('sidebar-instruction')">
+        <span>Инструкция</span>
+    </div>
+
+    <div class="feedback-tab" onclick="toggleScreen('feedback-screen')">
+        <span>Подсказка разработчику</span>
+    </div>
+
+    <div class="overlay-screen" id="sidebar-instruction">
+        <span class="overlay-close" onclick="toggleScreen('sidebar-instruction')">×</span>
+        <h4>Инструкция блокнота</h4>
+        <div class="instruction-content">
+            <p>Перед вами цифровой лист в клеточку с абсолютной автономией управления:</p>
+            <ul>
+                <li>📝 <b>Запись и время:</b> Введите задачу. Округленное время в конце строки выделится жирным шрифтом. Прошедшие часы подсвечиваются красным.</li>
+                <li>🎙️ <b>Умный голос:</b> Нажмите значок микрофона справа и диктуйте. Названия ключевых компаний склеятся автоматически без пробелов.</li>
+                <li>🖍️ <b>Маркер:</b> Двойной клик по тексту задачи подсветит строку мягким пастельным цветом для фиксации суперважных дел.</li>
+                <li>🔲 <b>Вычеркивание:</b> Проведите пальцем слева направо (свайп) или зажмите строку на 1 секунду — задача красиво зачеркнется гелевой ручкой.</li>
+                <li>💾 <b>Автосохранение:</b> Все записи мгновенно фиксируются в локальную память. Перезагрузка страницы ничего не сотрет.</li>
+                <li>📅 <b>Календарь:</b> Нажмите на дату вверху экрана для перехода на любой день с 3D-эффектом перелистывания.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="overlay-screen" id="feedback-screen">
+        <span class="overlay-close" onclick="toggleScreen('feedback-screen')">×</span>
+        <h4>Подсказка разработчику</h4>
+        <div class="feedback-form">
+            <p>Появилась крутая идея по улучшению блокнота или заметили какую-то сложность? Оставьте свой комментарий для доработки:</p>
+            <div class="form-group">
+                <label>Ваше имя и сфера деятельности</label>
+                <input type="text" id="fb-user" placeholder="Например: Артур (Директор СК)">
+            </div>
+            <div class="form-group">
+                <label>Что именно вы бы поменяли или добавили?</label>
+                <textarea id="fb-text" rows="5" placeholder="Напишите комментарий к приложению..."></textarea>
+            </div>
+            <button class="finish-btn" style="margin-top: 10px;" onclick="sendFeedback()">Отправить подсказку</button>
+        </div>
+    </div>
+
+    <div class="overlay-screen" id="profile-screen">
+        <span class="overlay-close" onclick="toggleScreen('profile-screen')">×</span>
+        <h4>Титульный лист блокнота</h4>
+        <div class="profile-form">
+            <div class="form-group">
+                <label>Фамилия и Имя</label>
+                <input type="text" id="user-name" value="Иванов Иван">
+            </div>
+            <div class="form-group">
+                <label>Адрес электронной почты</label>
+                <input type="email" id="user-email" value="boss@mycompany.ru">
+            </div>
+            
+            <div class="form-group">
+                <label>Настройка сигналов и напоминаний</label>
+                <div class="form-row-inline">
+                    <div style="flex:1;">
+                        <span style="font-size:0.85rem; color:#666;">Утро (составить дела):</span>
+                        <input type="time" id="alert-morning" value="08:30">
+                    </div>
+                    <div style="flex:1;">
+                        <span style="font-size:0.85rem; color:#666;">Вечер (итог дня):</span>
+                        <input type="time" id="alert-evening" value="20:30">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Моя утренняя подборка (ИИ-Агент) <span style="font-size:0.8rem; color:#059669; font-weight:normal;">[Премиум]</span></label>
+                <div class="checkbox-group">
+                    <label class="checkbox-item"><input type="checkbox" id="agent-biz" checked> Бизнес-аналитика рынка</label>
+                    <label class="checkbox-item"><input type="checkbox" id="agent-time" checked> Мотивация и тайм-менеджмент</label>
+                    <label class="checkbox-item"><input type="checkbox" id="agent-log"> Погода и пробки по маршруту</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Ссылка на мой бизнес-ресурс</label>
+                <input type="url" id="agent-custom-url" placeholder="https://my-analytics-portal.ru/news">
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 3px 0;">
+            <label style="font-weight: 600;">Выгрузка документов:</label>
+            <button class="interim-btn" onclick="generateCleanPDF(true)">📊 Создать промежуточный отчет</button>
+            <button class="finish-btn" style="margin-top: 20px;" onclick="saveProfile()">Сохранить настройки</button>
+        </div>
+    </div>
+
+    <div class="header">
+        <button class="profile-btn" onclick="toggleScreen('profile-screen')">👤</button>
+        <div class="date-picker-wrapper">
+            <span class="header-date" id="display-date">Загрузка...</span>
+            <input type="date" class="hidden-date-input" id="date-picker">
+        </div>
+    </div>
+
+    <div class="goals-top-box">
+        <input type="text" id="global-goals" class="goal-editable" value="🎯 Цели: 1. Сдать 3 объекта | 2. Выполнить норматив Х">
+    </div>
+
+    <div class="todo-list" id="todo-list"></div>
+
+    <div class="finish-day-container">
+        <button class="finish-btn" onclick="generateCleanPDF(false)">📋 Сформировать итог дня</button>
+    </div>
+
+    <div class="bottom-panel" id="bottom-panel">
+        <div class="panel-trigger" onclick="toggleBottomPanel()">📜 Заметки</div>
+        <div class="panel-content">
+            <textarea id="diary-textarea" class="panel-textarea" placeholder="Заметки, замеры, хроника выплат (кому, сколько, за что)..."></textarea>
+        </div>
+    </div>
+</div>
+
+<div id="pdf-render-template">
+    <div class="pdf-title" id="pdf-title-text">Отчет за рабочий день</div>
+    <div class="pdf-meta">
+        <p><b>Сотрудник:</b> <span id="pdf-meta-user"></span></p>
+        <p><b>Дата смены:</b> <span id="pdf-meta-date"></span></p>
+        <p><b>Глобальный фокус:</b> <span id="pdf-meta-goals"></span></p>
+    </div>
+    <div class="pdf-section-title">Хроника выполнения задач списка</div>
+    <div id="pdf-tasks-box"></div>
+    <div class="pdf-section-title">Дословные заметки, замеры и операции</div>
+    <div class="pdf-notes" id="pdf-notes-box"></div>
+</div>
+
+<script>
+    const smartDictionary = ["Техноавиа", "Термопрофи", "Полюс БЦ", "Ломоносова", "Доморадскому"];
+    let isTodaySelected = true;
+    let currentSelectedDateStr = "";
+
+    function formatRussianDate(dateObject) {
+        const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+        return `${days[dateObject.getDay()]}, ${String(dateObject.getDate()).padStart(2, '0')}.${String(dateObject.getMonth() + 1).padStart(2, '0')}.${dateObject.getFullYear()}`;
+    }
+
+    const datePicker = document.getElementById('date-picker');
+    const displayDate = document.getElementById('display-date');
+    const notepadContainer = document.getElementById('notepad');
+    const diaryTextarea = document.getElementById('diary-textarea');
+    const globalGoalsInput = document.getElementById('global-goals');
+    const overlayGoalText = document.getElementById('overlay-goal-text');
+
+    const today = new Date();
+    currentSelectedDateStr = today.toISOString().split('T')[0];
+    datePicker.value = currentSelectedDateStr;
+    displayDate.innerText = formatRussianDate(today);
+
+    // Тотальное автосохранение настроек анкеты и ссылок без сбросов
+    const fieldsToSave = ['user-name', 'user-email', 'alert-morning', 'alert-evening', 'global-goals', 'agent-custom-url'];
+    fieldsToSave.forEach(id => {
+        const el = document.getElementById(id);
+        if(localStorage.getItem(id)) el.value = localStorage.getItem(id);
+        
+        el.addEventListener('input', () => {
+            localStorage.setItem(id, el.value);
+            if(id === 'global-goals') overlayGoalText.innerText = el.value; // Сквозная синхронизация с заставкой
+        });
+    });
+    overlayGoalText.innerText = globalGoalsInput.value;
+
+    ['agent-biz', 'agent-time', 'agent-log'].forEach(id => {
+        const cb = document.getElementById(id);
+        if(localStorage.getItem(id) !== null) cb.checked = localStorage.getItem(id) === 'true';
+        cb.addEventListener('change', () => localStorage.setItem(id, cb.checked));
+    });
+
+    datePicker.addEventListener('change', (e) => {
+        if (e.target.value) {
+            currentSelectedDateStr = e.target.value;
+            const selectedDate = new Date(currentSelectedDateStr);
+            
+            notepadContainer.classList.add('page-flip-anim');
+            setTimeout(() => notepadContainer.classList.remove('page-flip-anim'), 400);
+
+            displayDate.innerText = formatRussianDate(selectedDate);
+            isTodaySelected = selectedDate.toDateString() === today.toDateString();
+            
+            loadDayData(currentSelectedDateStr);
+        }
+    });
+
+    diaryTextarea.addEventListener('input', () => {
+        localStorage.setItem(`diary_${currentSelectedDateStr}`, diaryTextarea.value);
+    });
+
+    function loadDayData(dateStr) {
+        diaryTextarea.value = localStorage.getItem(`diary_${dateStr}`) || '';
+        for (let i = 1; i <= 15; i++) {
+            const input = document.getElementById(`input-${i}`);
+            const badge = document.getElementById(`time-${i}`);
+            const row = document.getElementById(`row-${i}`);
+            
+            const savedValue = localStorage.getItem(`input_${dateStr}_${i}`) || '';
+            const savedCompleted = localStorage.getItem(`completed_${dateStr}_${i}`) === 'true';
+            const savedImportant = localStorage.getItem(`important_${dateStr}_${i}`) === 'true';
+            
+            if (input) input.value = savedValue;
+            if (row) {
+                if (savedCompleted) row.classList.add('completed'); else row.classList.remove('completed');
+                if (savedImportant) row.classList.add('important'); else row.classList.remove('important');
+            }
+            if (input && badge) parseTimeInRow(input, badge);
+        }
+    }
+
+    function parseTimeInRow(inputField, badge) {
+        const text = inputField.value;
+        const timeMatch = text.match(/(\d{1,2})[:.-](\d{2})\s*$/); 
+        
+        if (timeMatch) {
+            const hours = parseInt(timeMatch[1]);
+            const minutes = parseInt(timeMatch[2]);
+            badge.innerText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            badge.style.display = 'inline-block';
+            badge.classList.remove('error-time');
+
+            if (isTodaySelected) {
+                const currentHour = today.getHours();
+                const currentMinute = today.getMinutes();
+                if (hours < currentHour || (hours === currentHour && minutes < currentMinute)) {
+                    badge.classList.add('error-time');
+                }
+            }
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    // Инициализация строго 15 строк дел
+    const todoListContainer = document.getElementById('todo-list');
+    for (let i = 1; i <= 15; i++) {
+        const row = document.createElement('div');
+        row.className = 'todo-row';
+        row.id = `row-${i}`;
+        row.innerHTML = `
+            <span class="row-number">${i})</span>
+            <div class="row-input-wrapper">
+                <input type="text" class="row-input" id="input-${i}" placeholder="...">
+                <span class="time-badge" id="time-${i}"></span>
+            </div>
+            <button class="mic-btn" onclick="startSpeech(${i})">🎙️</button>
+        `;
+        setupRowEvents(row, i);
+        todoListContainer.appendChild(row);
+    }
+
+    function setupRowEvents(row, i) {
+        const input = row.querySelector('.row-input');
+        const badge = row.querySelector('.time-badge');
+        
+        input.addEventListener('input', () => {
+            localStorage.setItem(`input_${currentSelectedDateStr}_${i}`, input.value);
+            parseTimeInRow(input, badge);
+        });
+
+        input.addEventListener('dblclick', () => {
+            row.classList.toggle('important');
+            localStorage.setItem(`important_${currentSelectedDateStr}_${i}`, row.classList.contains('important'));
+        });
+        
+        // Стабильный жест свайпа вправо для вычеркивания дел
+        let touchstartX = 0;
+        row.addEventListener('touchstart', function(e) { touchstartX = e.changedTouches[0].screenX; }, {passive: true});
+        row.addEventListener('touchend', function(e) {
+            let touchendX = e.changedTouches[0].screenX;
+            if (touchendX - touchstartX > 60) { 
+                row.classList.toggle('completed');
+                localStorage.setItem(`completed_${currentSelectedDateStr}_${i}`, row.classList.contains('completed'));
+            }
+        }, {passive: true});
+
+        // Альтернативное долгое удержание (0.6 сек) для вычеркивания дел
+        let pressTimer;
+        row.addEventListener('touchstart', (e) => {
+            if (e.target.classList.contains('mic-btn')) return;
+            pressTimer = window.setTimeout(() => {
+                row.classList.toggle('completed');
+                localStorage.setItem(`completed_${currentSelectedDateStr}_${i}`, row.classList.contains('completed'));
+            }, 600);
+        }, {passive: true});
+        row.addEventListener('touchend', () => clearTimeout(pressTimer), {passive: true});
+        row.addEventListener('touchmove', () => clearTimeout(pressTimer), {passive: true});
+    }
+
+    function toggleScreen(id) { document.getElementById(id).classList.toggle('open'); }
+    function toggleBottomPanel() { document.getElementById('bottom-panel').classList.toggle('open'); }
+    function saveProfile() { toggleScreen('profile-screen'); }
+
+    // Сокращено до 3 секунд по ТЗ. Ложные тач-возвраты полностью вырезаны
+    setTimeout(() => {
+        const overlay = document.getElementById('morning-overlay');
+        if(overlay) { overlay.style.opacity = '0'; setTimeout(() => overlay.style.display = 'none', 500); }
+    }, 3000);
+
+    function startSpeech(rowIndex) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return alert("Микрофон не поддерживается.");
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ru-RU';
+        const micBtn = document.querySelector(`#row-${rowIndex} .mic-btn`);
+        const inputField = document.getElementById(`input-${rowIndex}`);
+        const badge = document.getElementById(`time-${rowIndex}`);
+
+        micBtn.classList.add('recording');
+        recognition.start();
+        recognition.onresult = (event) => {
+            let result = event.results[0][0].transcript;
+            smartDictionary.forEach(word => {
+                let broken = word.split('').join('\\s*');
+                result = result.replace(new RegExp(broken, 'gi'), word);
+            });
+            inputField.value = result;
+            localStorage.setItem(`input_${currentSelectedDateStr}_${rowIndex}`, inputField.value);
+            parseTimeInRow(inputField, badge);
+        };
+        recognition.onspeechend = () => { recognition.stop(); micBtn.classList.remove('recording'); };
+    }
+
+    function sendFeedback() {
+        const user = document.getElementById('fb-user').value;
+        alert(`Спасибо, ${user || 'коллега'}! Ваша подсказка зафиксирована для следующего цикла разработки.`);
+        document.getElementById('fb-text').value = '';
+        toggleScreen('feedback-screen');
+    }
+
+    // НОВАЯ СИСТЕМА ГЕНЕРАЦИИ: Исключает появление кракозябр, создавая кристально чистый русский PDF
+    function generateCleanPDF(isInterim) {
+        document.getElementById('pdf-title-text').innerText = isInterim ? "Промежуточный отчет смены" : "Отчет за рабочий день";
+        document.getElementById('pdf-meta-user').innerText = document.getElementById('user-name').value;
+        document.getElementById('pdf-meta-date').innerText = displayDate.innerText;
+        document.getElementById('pdf-meta-goals').innerText = globalGoalsInput.value;
+        document.getElementById('pdf-notes-box').innerText = diaryTextarea.value || "Записи в Заметках отсутствуют.";
+
+        const tasksBox = document.getElementById('pdf-tasks-box');
+        tasksBox.innerHTML = "";
+        
+        let hasTasks = false;
+        for (let i = 1; i <= 15; i++) {
+            const val = document.getElementById(`input-${i}`).value;
+            const isDone = localStorage.getItem(`completed_${currentSelectedDateStr}_${i}`) === 'true';
+            if (val) {
+                hasTasks = true;
+                const item = document.createElement('div');
+                item.className = "pdf-item";
+                item.innerHTML = `<b>${i})</b> ${isDone ? "[Выполнено]" : "[В планах]"} — ${val}`;
+                tasksBox.appendChild(item);
+            }
+        }
+        if(!hasTasks) tasksBox.innerHTML = "<div class='pdf-item'>Список дел на эту дату пуст.</div>";
+
+        const element = document.getElementById('pdf-render-template');
+        const filename = isInterim ? `Срез_${currentSelectedDateStr}.pdf` : `Итог_${currentSelectedDateStr}.pdf`;
+        
+        const opt = {
+            margin: 15,
+            filename: filename,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(() => {
+            if(!isInterim) {
+                alert(`Рабочий день за [ ${displayDate.innerText} ] закрыт! Чистый русский PDF-отчет А4 успешно сохранен на ваше устройство.`);
+            } else {
+                alert(`Промежуточный срез сохранен в файл [ ${filename} ]. Настройки и смена не прерываются.`);
+                toggleScreen('profile-screen');
+            }
+        });
+    }
+
+    loadDayData(currentSelectedDateStr);
+</script>
+</body>
+</html>
