@@ -9,9 +9,9 @@
     <style>
         :root {
             --paper-bg: #fdfdfb;
-            --grid-color: rgba(180, 195, 210, 0.15); /* Ненавязчивая светло-серая клеточка */
+            --grid-color: rgba(180, 195, 210, 0.15);
             --text-color: #242424; 
-            --marker-color: rgba(254, 240, 138, 0.55); /* Пастельный маркер-хайлайтер */
+            --marker-color: rgba(254, 240, 138, 0.55);
             --strike-color: rgba(36, 36, 36, 0.35);
         }
 
@@ -27,9 +27,10 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            /* ЖЕСТКАЯ БЛОКИРОВКА ОБНОВЛЕНИЯ СТРАНИЦЫ ПРИ СВАЙПЕ ВНИЗ В БРАУЗЕРАХ */
+            overscroll-behavior-y: contain;
         }
 
-        /* Кроссплатформенный контейнер: на ПК и планшетах центрируется и сохраняет форму листа А5 */
         .notepad-container {
             width: 100%;
             max-width: 480px;
@@ -45,9 +46,10 @@
             overflow: hidden;
             box-shadow: 0 0 30px rgba(0,0,0,0.6);
             perspective: 1000px;
+            /* ДОПОЛНИТЕЛЬНАЯ БЛОКИРОВКА СВАЙПОВ НА КОНТЕЙНЕРЕ */
+            overscroll-behavior-y: contain;
         }
 
-        /* Стабильный 3D Page-Flip эффект смены листов */
         .page-flip-anim { animation: flipPage 0.4s ease-in-out; transform-origin: left center; }
         @keyframes flipPage {
             0% { transform: scale(1) rotateY(0deg); opacity: 1; }
@@ -55,7 +57,6 @@
             100% { transform: scale(1) rotateY(0deg); opacity: 1; }
         }
 
-        /* Шапка с отступами, чтобы закладки не перекрывали текст */
         .header {
             padding: 15px 50px 8px 65px;
             display: flex;
@@ -65,7 +66,6 @@
             z-index: 2;
         }
 
-        /* Компактная левая закладка Инструкции */
         .instruction-tab {
             position: absolute;
             top: 15px;
@@ -89,7 +89,6 @@
             letter-spacing: 0.5px;
         }
 
-        /* Компактная полупрозрачная правая закладка Подсказки */
         .feedback-tab {
             position: absolute;
             top: 15px;
@@ -131,18 +130,15 @@
         .header-date { font-size: 1.15rem; font-weight: 600; color: #444; border-bottom: 1px dotted #999; padding-bottom: 2px; }
         .hidden-date-input { position: absolute; top: 0; right: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
 
-        /* Цели: Прямой шрифт, строгое выравнивание по левому краю страницы */
         .goals-top-box { padding: 10px 24px; background: rgba(0,0,0,0.01); border-bottom: 1px solid rgba(0,0,0,0.03); }
         .goal-editable { font-size: 1.1rem; color: #444; outline: none; border: none; background: transparent; width: 100%; font-family: inherit; font-weight: 600; text-align: left; }
 
-        /* Список задач строго на 15 строк */
         .todo-list { flex: 1; overflow-y: auto; padding: 5px 0 120px 0; user-select: none; }
         .todo-row { height: 40px; display: flex; align-items: center; padding: 0 24px; position: relative; transition: background 0.3s; }
         .row-number { width: 28px; font-size: 1.1rem; color: #888; font-weight: 600; }
         .row-input-wrapper { flex: 1; display: flex; align-items: center; gap: 10px; height: 100%; }
         .row-input { flex: 1; background: transparent; border: none; outline: none; font-family: inherit; font-size: 1.15rem; color: var(--text-color); height: 100%; }
         
-        /* Автоматическое выделение времени жирным */
         .time-badge { font-weight: 700; font-size: 1.1rem; color: #000; background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: 4px; display: none; }
         .time-badge.error-time { background: #fee2e2; color: #991b1b; } 
 
@@ -152,7 +148,6 @@
         .todo-row.important { background-color: var(--marker-color); }
         .todo-row.completed .row-input { text-decoration: line-through; color: var(--strike-color); }
 
-        /* Выезжающие оверлеи экранов */
         .overlay-screen {
             position: absolute;
             top: 0; left: -100%; width: 100%; height: 100%;
@@ -176,7 +171,6 @@
         .checkbox-group { display: flex; flex-direction: column; gap: 8px; background: #fff; padding: 12px; border: 1px solid #ccc; border-radius: 6px; }
         .checkbox-item { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; cursor: pointer; }
 
-        /* Утренняя заставка строго на 3 секунды. Свайп-возвраты удалены из кода */
         .morning-overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -188,7 +182,6 @@
         .morning-card h3 { font-size: 1.8rem; margin-bottom: 15px; color: #fef08a; font-weight: 600; }
         .morning-card p { font-size: 1.3rem; font-weight: 300; line-height: 1.5; }
 
-        /* Блок Заметок */
         .bottom-panel {
             position: absolute;
             bottom: 0; left: 0; width: 100%;
@@ -205,7 +198,6 @@
         .panel-content { padding: 15px; height: 200px; }
         .panel-textarea { width: 100%; height: 100%; background: transparent; border: 1px dashed rgba(0,0,0,0.15); font-family: inherit; font-size: 1.1rem; padding: 10px; resize: none; outline: none; line-height: 1.4; }
 
-        /* Главная кнопка закрытия смены */
         .finish-day-container { padding: 15px 24px; display: flex; justify-content: center; background: transparent; position: absolute; bottom: 40px; width: 100%; }
         .finish-btn {
             background: #242424; color: #fff; border: none; padding: 12px 35px; border-radius: 24px;
@@ -217,7 +209,6 @@
         .interim-btn { background: #4b5563; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-family: inherit; font-size: 1.05rem; cursor: pointer; margin-top: 5px; font-weight: 600; }
         .interim-btn:active { background: #374151; }
 
-        /* Скрытый А4 контейнер-шаблон для генерации читабельного PDF без кракозябр */
         #pdf-render-template {
             position: absolute; left: -9999px; top: -9999px;
             width: 210mm; padding: 20mm; background: #fff; color: #000;
@@ -392,15 +383,16 @@
     datePicker.value = currentSelectedDateStr;
     displayDate.innerText = formatRussianDate(today);
 
-    // Тотальное автосохранение настроек анкеты и ссылок без сбросов
+    // Тотальная привязка полей анкеты к LocalStorage
     const fieldsToSave = ['user-name', 'user-email', 'alert-morning', 'alert-evening', 'global-goals', 'agent-custom-url'];
     fieldsToSave.forEach(id => {
         const el = document.getElementById(id);
-        if(localStorage.getItem(id)) el.value = localStorage.getItem(id);
-        
+        if(localStorage.getItem(id)) {
+            el.value = localStorage.getItem(id);
+        }
         el.addEventListener('input', () => {
             localStorage.setItem(id, el.value);
-            if(id === 'global-goals') overlayGoalText.innerText = el.value; // Сквозная синхронизация с заставкой
+            if(id === 'global-goals') overlayGoalText.innerText = el.value;
         });
     });
     overlayGoalText.innerText = globalGoalsInput.value;
@@ -473,7 +465,6 @@
         }
     }
 
-    // Инициализация строго 15 строк дел
     const todoListContainer = document.getElementById('todo-list');
     for (let i = 1; i <= 15; i++) {
         const row = document.createElement('div');
@@ -505,7 +496,6 @@
             localStorage.setItem(`important_${currentSelectedDateStr}_${i}`, row.classList.contains('important'));
         });
         
-        // Стабильный жест свайпа вправо для вычеркивания дел
         let touchstartX = 0;
         row.addEventListener('touchstart', function(e) { touchstartX = e.changedTouches[0].screenX; }, {passive: true});
         row.addEventListener('touchend', function(e) {
@@ -516,7 +506,6 @@
             }
         }, {passive: true});
 
-        // Альтернативное долгое удержание (0.6 сек) для вычеркивания дел
         let pressTimer;
         row.addEventListener('touchstart', (e) => {
             if (e.target.classList.contains('mic-btn')) return;
@@ -533,7 +522,6 @@
     function toggleBottomPanel() { document.getElementById('bottom-panel').classList.toggle('open'); }
     function saveProfile() { toggleScreen('profile-screen'); }
 
-    // Сокращено до 3 секунд по ТЗ. Ложные тач-возвраты полностью вырезаны
     setTimeout(() => {
         const overlay = document.getElementById('morning-overlay');
         if(overlay) { overlay.style.opacity = '0'; setTimeout(() => overlay.style.display = 'none', 500); }
@@ -565,12 +553,11 @@
 
     function sendFeedback() {
         const user = document.getElementById('fb-user').value;
-        alert(`Спасибо, ${user || 'коллега'}! Ваша подсказка зафиксирована для следующего цикла разработки.`);
+        alert(`Спасибо, ${user || 'коллега'}! Ваша подсказка отправлена.`);
         document.getElementById('fb-text').value = '';
         toggleScreen('feedback-screen');
     }
 
-    // НОВАЯ СИСТЕМА ГЕНЕРАЦИИ: Исключает появление кракозябр, создавая кристально чистый русский PDF
     function generateCleanPDF(isInterim) {
         document.getElementById('pdf-title-text').innerText = isInterim ? "Промежуточный отчет смены" : "Отчет за рабочий день";
         document.getElementById('pdf-meta-user').innerText = document.getElementById('user-name').value;
@@ -593,7 +580,7 @@
                 tasksBox.appendChild(item);
             }
         }
-        if(!hasTasks) tasksBox.innerHTML = "<div class='pdf-item'>Список дел на эту дату пуст.</div>";
+        if(!hasTasks) tasksBox.innerHTML = "<div class='pdf-item'>Список дел пуст.</div>";
 
         const element = document.getElementById('pdf-render-template');
         const filename = isInterim ? `Срез_${currentSelectedDateStr}.pdf` : `Итог_${currentSelectedDateStr}.pdf`;
@@ -608,9 +595,9 @@
 
         html2pdf().set(opt).from(element).save().then(() => {
             if(!isInterim) {
-                alert(`Рабочий день за [ ${displayDate.innerText} ] закрыт! Чистый русский PDF-отчет А4 успешно сохранен на ваше устройство.`);
+                alert(`Рабочий день за [ ${displayDate.innerText} ] закрыт! PDF-отчет А4 сохранен.`);
             } else {
-                alert(`Промежуточный срез сохранен в файл [ ${filename} ]. Настройки и смена не прерываются.`);
+                alert(`Промежуточный срез зафиксирован в файле [ ${filename} ].`);
                 toggleScreen('profile-screen');
             }
         });
